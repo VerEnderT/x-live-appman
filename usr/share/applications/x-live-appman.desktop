@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=0.0.1
+Type=Application
+Name=X-Live AppMan
+Exec=x-live-appman
+Icon=x-live-appman
+Categories=Utility;
+Keywords=install;deb;debian;software,package,playstore,manager,appman
+StartupNotify=true
+X-GNOME-UsesNotifications=true
+GenericName=App Manager 
