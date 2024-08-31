@@ -4,10 +4,10 @@ import requests
 import subprocess
 import re
 import time
-from PyQt5.QtCore import QProcess
+from PyQt5.QtCore import QProcess, QTimer
 from app_info import get_package_info
 from screenshot_search import fetch_image_urls
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QComboBox, QListWidget, QWidget, QHBoxLayout, QLabel, QTextEdit, QPushButton, QDialog, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QComboBox, QListWidget, QWidget, QHBoxLayout, QLabel, QTextEdit, QPushButton, QDialog, QMessageBox, QCheckBox
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage,QTextCursor, QIcon
 # Pfad zum gewünschten Arbeitsverzeichnis # Das Arbeitsverzeichnis festlegen
@@ -46,11 +46,15 @@ class PackageManager(QMainWindow):
             "games", "video", "sound", "graphics", "web", "text",
             "education", "doc", "admin", "all"
         ]
-
         self.popular_category_combo = QComboBox(self)
         self.load_popular_categories()
         self.popular_category_combo.currentIndexChanged.connect(self.load_packages_from_popular)
         self.layout.addWidget(self.popular_category_combo)
+
+        self.checkbox = QCheckBox("Alle Kategorien")
+        self.checkbox.setChecked(False)
+        self.checkbox.stateChanged.connect(self.change_all_to_polular)
+
 
         self.pack_info_layout = QVBoxLayout()
         self.pack_title = QLabel()
@@ -75,6 +79,7 @@ class PackageManager(QMainWindow):
         self.install_layout.addWidget(self.pack_uninstall)
         
         self.pack_info_layout.addStretch(1)
+        self.pack_info_layout.addWidget(self.checkbox)
         self.pack_info_layout.addWidget(self.pack_title)
         self.pack_info_layout.addLayout(self.img_layout)
         self.pack_info_layout.addWidget(self.pack_info)
@@ -99,9 +104,15 @@ class PackageManager(QMainWindow):
         self.layout.addWidget(self.package_list)
 
         self.central_widget.setLayout(self.mainlayout)
+
         # Initiale Paketliste laden
         self.load_packages_from_popular()
+        # theme farben ermitteln und setzen
         self.background_color()
+        self.bg_check = QTimer(self, interval=3000, timeout=self.background_color)
+        self.bg_check.start()
+
+        # erstes element der package_list auswählen
         self.package_list.setCurrentRow(0)
 
     def on_listwidget_item_changed(self, current, previous):
@@ -118,16 +129,19 @@ class PackageManager(QMainWindow):
             
             self.pack_info.setText(f" Maintainer: {app_info['Maintainer']}\n Homepage: {app_info['Homepage']}\n Installierte Größe: {app_info['Installed-Size']} KB\n Beschreibung: {app_info['Short Description']}\n\n {app_info['Long Description']}")#\nAbhängigkeiten: {app_info['Depends']} \n")
             
-            if not img_url:
-                img_url = ["https://screenshots.debian.net/images/dummy/no-screenshots-upload-one.svg"]
+            
             pixmap = QPixmap()
-            pixmap.loadFromData(self.download_image(img_url[0]))
+            if not img_url:
+                pixmap.load("./no_screenshot.png")
+                self.nw_img_url = None
+            else:
+                pixmap.loadFromData(self.download_image(img_url[0]))
+                self.nw_img_url = img_url[0]
             max_width = 500
             max_height = 240
             scaled_pixmap = pixmap.scaled(max_width, max_height, aspectRatioMode=1)  # 1 = Qt.AspectRatioMode.KeepAspectRatio
             self.pack_img.setIcon(QIcon(pixmap))
             self.pack_img.setIconSize(scaled_pixmap.size())
-            self.nw_img_url = img_url[0]
             self.nw_title = selected_text
             if app_info['Status'] == "yes":
                 self.pack_install.hide()
@@ -137,11 +151,25 @@ class PackageManager(QMainWindow):
                 self.pack_uninstall.hide()
             
             
+    def change_all_to_polular(self,text):
+        
+        if self.checkbox.isChecked():
+            self.category_combo.show()
+            self.popular_category_combo.hide()
+            self.category_combo.setCurrentIndex(1)
+            self.category_combo.setCurrentIndex(0)
+            self.package_list.setCurrentRow(0)
             
-            
+        else: 
+            self.category_combo.hide()
+            self.popular_category_combo.show()    
+            self.popular_category_combo.setCurrentIndex(1)  
+            self.popular_category_combo.setCurrentIndex(0)  
+            self.package_list.setCurrentRow(0)
             
     def new_window(self):
-        subprocess.Popen(["python3", "./big_picture.py", self.nw_img_url, self.nw_title])
+        if self.nw_img_url != None:
+            subprocess.Popen(["python3", "./big_picture.py", self.nw_img_url, self.nw_title])
 
 
     def get_available_categories(self):
@@ -211,10 +239,11 @@ class PackageManager(QMainWindow):
             if theme_name:
                 return theme_name
         except FileNotFoundError:
-            print("xfconf-query nicht gefunden. Versuche gsettings.")
+            pass
+            #print("xfconf-query nicht gefunden. Versuche gsettings.")
         except Exception as e:
-            print(f"Error getting theme with xfconf-query: {e}")
-
+            #print(f"Error getting theme with xfconf-query: {e}")
+            pass
         try:
             # Fallback auf gsettings, falls xfconf-query nicht vorhanden ist
             result = subprocess.run(['gsettings', 'get', 'org.gnome.desktop.interface', 'gtk-theme'], capture_output=True, text=True)
@@ -222,8 +251,9 @@ class PackageManager(QMainWindow):
             if theme_name:
                 return theme_name
         except Exception as e:
-            print(f"Error getting theme with gsettings: {e}")
-
+            #print(f"Error getting theme with gsettings: {e}")
+            pass
+    
         return None
 
     def extract_color_from_css(self,css_file_path, color_name):
@@ -238,14 +268,14 @@ class PackageManager(QMainWindow):
                     return match.group(1)
                 return None
         except IOError as e:
-            print(f"Error reading file: {e}")
+            #print(f"Error reading file: {e}")
             return None
             
             
     def background_color(self):
         theme_name = self.get_current_theme()
         if theme_name:
-            print(f"Current theme: {theme_name}")
+            #print(f"Current theme: {theme_name}")
 
             # Pfad zur GTK-CSS-Datei des aktuellen Themes
             css_file_path = f'/usr/share/themes/{theme_name}/gtk-3.0/gtk.css'
@@ -253,10 +283,27 @@ class PackageManager(QMainWindow):
                 bcolor = self.extract_color_from_css(css_file_path, ' background-color')
                 color = self.extract_color_from_css(css_file_path, ' color')
                 self.central_widget.setStyleSheet(f"background: {bcolor};color: {color}")
+                self.checkbox.setStyleSheet("""
+                            QCheckBox::indicator {
+                                border: 1px solid """ + color + """;  /* Farbe und Dicke des Randes */
+
+                            }
+                            QCheckBox::indicator:checked {
+                                border-color: """ + color + """;     /* Randfarbe im ausgewählten Zustand */
+                                background-color: """ + color + """;    /* Hintergrundfarbe ohne Haken */
+                            }
+                            QCheckBox::indicator:unchecked {
+                                border-color: """ + color + """;     /* Randfarbe im nicht ausgewählten Zustand */
+                                background-color: """ + bcolor + """;    /* Hintergrundfarbe ohne Haken */
+                            }
+                        """)
+
             else:
-                print(f"CSS file not found: {css_file_path}")
+                pass
+                #print(f"CSS file not found: {css_file_path}")
         else:
-            print("Unable to determine the current theme.")
+            pass
+            #print("Unable to determine the current theme.")
             
             
     def install_start(self):
@@ -342,12 +389,6 @@ class PackageManager(QMainWindow):
             QMessageBox.critical(self, "Error", "Failed to uninstall package.")
         
         self.un_install_finished()
-                        
-            
-            
-            
-            
-
 
 def check_and_update_translations(categories, translation_file):
     # Übersetzungstabelle prüfen und aktualisieren
