@@ -7,7 +7,7 @@ import time
 from PyQt5.QtCore import QProcess, QTimer
 from app_info import get_package_info
 from screenshot_search import fetch_image_urls
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QComboBox, QListWidget, QWidget, QHBoxLayout, QLabel, QTextEdit, QPushButton, QDialog, QMessageBox, QCheckBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QComboBox, QListWidget, QWidget, QHBoxLayout, QLabel, QTextEdit, QPushButton, QDialog, QMessageBox, QCheckBox, QLineEdit
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage,QTextCursor, QIcon
 # Pfad zum gewünschten Arbeitsverzeichnis # Das Arbeitsverzeichnis festlegen
@@ -22,7 +22,7 @@ class PackageManager(QMainWindow):
 
         self.setWindowTitle("X-Live-AppMan")
         self.setWindowIcon(QIcon("./appman.png"))
-        self.setGeometry(100, 100, 600, 600)
+        self.setGeometry(100, 70, 750, 600)
         self.setFixedWidth(800)
         self.process = None
 
@@ -51,9 +51,29 @@ class PackageManager(QMainWindow):
         self.popular_category_combo.currentIndexChanged.connect(self.load_packages_from_popular)
         self.layout.addWidget(self.popular_category_combo)
 
+
+        self.check_search_layout = QHBoxLayout()
+
         self.checkbox = QCheckBox("Alle Kategorien")
         self.checkbox.setChecked(False)
         self.checkbox.stateChanged.connect(self.change_all_to_polular)
+        self.check_search_layout.addWidget(self.checkbox)
+        self.check_search_layout.addStretch(1)
+
+        # Suchfeld hinzufügen
+        self.search_input = QLineEdit(self)
+        self.search_input.setPlaceholderText("Suche nach Apps...")
+        self.check_search_layout.addWidget(self.search_input)
+
+        # Such-Button hinzufügen
+        self.search_button = QPushButton(self)
+        icon=QIcon("/usr/share/x-live/appman/search.png")
+        self.search_button.setIcon(icon)
+        self.check_search_layout.addWidget(self.search_button)
+
+        # Suchfunktion verbinden
+        self.search_input.returnPressed.connect(self.perform_search)
+        self.search_button.clicked.connect(self.perform_search)
 
 
         self.pack_info_layout = QVBoxLayout()
@@ -79,7 +99,7 @@ class PackageManager(QMainWindow):
         self.install_layout.addWidget(self.pack_uninstall)
         
         self.pack_info_layout.addStretch(1)
-        self.pack_info_layout.addWidget(self.checkbox)
+        self.pack_info_layout.addLayout(self.check_search_layout)
         self.pack_info_layout.addWidget(self.pack_title)
         self.pack_info_layout.addLayout(self.img_layout)
         self.pack_info_layout.addWidget(self.pack_info)
@@ -389,6 +409,36 @@ class PackageManager(QMainWindow):
             QMessageBox.critical(self, "Error", "Failed to uninstall package.")
         
         self.un_install_finished()
+
+    def perform_search(self):
+        # Suchtext holen
+        search_text = self.search_input.text().lower()
+
+        # Aktuelle Pakete aus der ausgewählten Kategorie laden
+        selected_category = self.category_combo.currentText() if self.checkbox.isChecked() else self.popular_category_combo.currentText()
+        packages = self.load_packages_from_category(selected_category)
+
+        # Pakete filtern, die den Suchtext enthalten
+        filtered_packages = [pkg for pkg in packages if search_text in pkg.lower()]
+
+        # Paketliste aktualisieren
+        self.package_list.clear()
+        self.package_list.addItems(filtered_packages)
+
+    def load_packages_from_category(self, category_name):
+        # Lade Pakete aus der ausgewählten Kategorie
+        original_category = next((key for key, value in self.translations.items() if value == category_name), category_name)
+        category_file = f'/tmp/x-live/sections/{original_category}.list'
+
+        if os.path.exists(category_file):
+            with open(category_file, 'r') as f:
+                packages = f.read().splitlines()
+
+            # Entferne doppelte Einträge, indem du ein Set verwendest und dann wieder in eine Liste konvertierst
+            unique_packages = list(set(packages))
+            return unique_packages
+        else:
+            return []  # Rückgabe einer leeren Liste, falls die Kategorie-Datei nicht existiert
 
 def check_and_update_translations(categories, translation_file):
     # Übersetzungstabelle prüfen und aktualisieren

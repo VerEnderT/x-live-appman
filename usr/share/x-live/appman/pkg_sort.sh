@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Verzeichnis für die kategorisierten Pakete erstellen
-rm -R /tmp/x-live/sections/
+rm -rf /tmp/x-live/sections/
 mkdir -p /tmp/x-live/sections
 
 # Informationen zu allen verfügbaren Paketen abrufen
@@ -23,13 +23,12 @@ awk '
     }
 ' /tmp/x-live/aptinfo
 
-# Jede .list Datei sortieren
+# Jede .list Datei sortieren und doppelte Einträge entfernen
 for list in /tmp/x-live/sections/*.list; do
-    sort "$list" -o "$list"
+    sort -u "$list" -o "$list"  # `-u` entfernt Duplikate und speichert direkt in der Datei
 done
 
-# Alle Listen in eine Datei zusammenführen und sortieren
-cat /tmp/x-live/sections/*.list > /tmp/x-live/sections/all.list
-sort /tmp/x-live/sections/all.list -o /tmp/x-live/sections/all.list
+# Alle Listen in eine Datei zusammenführen, sortieren und doppelte Einträge entfernen
+sort -u /tmp/x-live/sections/*.list -o /tmp/x-live/sections/all.list
 
 echo "Kategorisierung abgeschlossen. Paketlisten sind in /tmp/x-live/sections/"

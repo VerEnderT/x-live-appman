@@ -1,9 +1,14 @@
 from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QApplication
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QIcon
 from PyQt5.QtCore import Qt
 import requests
+import os
 from io import BytesIO
 import sys
+
+arbeitsverzeichnis = os.path.expanduser('/usr/share/x-live/appman/')
+
+os.chdir(arbeitsverzeichnis)
 
 class ImageWindow(QWidget):
     def __init__(self, image_url, title, parent=None):
@@ -11,6 +16,7 @@ class ImageWindow(QWidget):
 
         # Setze den Titel des Fensters
         self.setWindowTitle(title)
+        self.setWindowIcon(QIcon("./appman.png"))
 
         # Bild von der URL herunterladen und in ein QPixmap umwandeln
         pixmap = self.download_image(image_url)
